@@ -15,6 +15,11 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_KEY) {
   supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 }
 
+// Root route for Railway test
+app.get("/", (req, res) => {
+  res.send("🚀 Users Service is running on Railway!");
+});
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", service: "Users Service" });
