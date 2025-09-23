@@ -5,28 +5,35 @@ import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+function cleanEnvVal(v) {
+  if (!v && v !== "") return undefined;
+  return v.replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
+}
 
-// Debug env variables
-console.log("DEBUG ENV", {
-  SUPABASE_URL: process.env.SUPABASE_URL,
-  HAS_SERVICE_ROLE: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-  HAS_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
-  PORT: process.env.PORT,
+// Clean environment variables
+const SUPABASE_URL = cleanEnvVal(process.env.SUPABASE_URL);
+const SUPABASE_SERVICE_ROLE_KEY = cleanEnvVal(process.env.SUPABASE_SERVICE_ROLE_KEY);
+const SUPABASE_ANON_KEY = cleanEnvVal(process.env.SUPABASE_ANON_KEY);
+const PORT = process.env.PORT || 3001;
+
+console.log("DEBUG ENV (sanitized)", {
+  SUPABASE_URL,
+  HAS_SERVICE_ROLE: !!SUPABASE_SERVICE_ROLE_KEY,
+  HAS_ANON_KEY: !!SUPABASE_ANON_KEY,
+  PORT,
 });
 
 // Supabase client (backend)
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error("❌ Missing Supabase environment variables!");
   process.exit(1);
 }
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const app = express();
+app.use(cors());
+app.use(express.json());
 
 // --------- ROUTES ---------
 
@@ -40,7 +47,6 @@ app.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // 1. Authenticate with Supabase Auth
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({ email, password });
 
@@ -50,7 +56,7 @@ app.post("/login", async (req, res) => {
 
     const authUser = authData.user;
 
-    // 2. Get role from custom users table
+    // Get role from custom users table
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id, full_name, role_id, active")
@@ -65,7 +71,7 @@ app.post("/login", async (req, res) => {
       return res.status(403).json({ error: "Account is inactive" });
     }
 
-    // 3. Get role name
+    // Get role name
     const { data: roleData, error: roleError } = await supabase
       .from("roles")
       .select("name")
@@ -90,12 +96,11 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Signup endpoint (optional for now)
+// Signup endpoint
 app.post("/signup", async (req, res) => {
   const { email, password, full_name, role_id } = req.body;
 
   try {
-    // 1. Create user in Supabase Auth
     const { data: authData, error: authError } =
       await supabase.auth.signUp({ email, password });
 
@@ -105,15 +110,12 @@ app.post("/signup", async (req, res) => {
 
     const authUser = authData.user;
 
-    // 2. Insert into custom users table
-    const { error: insertError } = await supabase.from("users").insert([
-      {
-        auth_uid: authUser.id,
-        email,
-        full_name,
-        role_id,
-      },
-    ]);
+    const { error: insertError } = await supabase.from("users").insert([{
+      auth_uid: authUser.id,
+      email,
+      full_name,
+      role_id,
+    }]);
 
     if (insertError) {
       return res.status(400).json({ error: insertError.message });
@@ -126,7 +128,6 @@ app.post("/signup", async (req, res) => {
 });
 
 // --------- START SERVER ---------
-const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Users service running on port ${PORT}`);
 });
