@@ -1,23 +1,20 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 
-dotenv.config();
-
-// --- Helper to clean env vars (Railway wraps them in quotes sometimes) ---
+// --- Helper to clean env vars (Railway sometimes adds quotes) ---
 function cleanEnv(value) {
   if (!value) return undefined;
   return value.replace(/^"(.+)"$/, "$1"); // strip leading + trailing quotes
 }
 
-// --- Cleaned environment variables ---
+// --- Environment variables ---
 const SUPABASE_URL = cleanEnv(process.env.SUPABASE_URL);
 const SUPABASE_SERVICE_ROLE_KEY = cleanEnv(process.env.SUPABASE_SERVICE_ROLE_KEY);
 const SUPABASE_ANON_KEY = cleanEnv(process.env.SUPABASE_ANON_KEY);
 const PORT = cleanEnv(process.env.PORT) || 3001;
 
-// Debug log (useful in Railway deploy logs)
+// Debug log (safe to show only presence, not full keys)
 console.log("DEBUG ENV", {
   SUPABASE_URL,
   HAS_SERVICE_ROLE: !!SUPABASE_SERVICE_ROLE_KEY,
@@ -31,7 +28,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 
-// Supabase client (backend service role)
+// Supabase client (backend)
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // --- Express setup ---
@@ -41,7 +38,7 @@ app.use(express.json());
 
 // Health check
 app.get("/", (req, res) => {
-  res.send("✅ Users Service is running 🚀");
+  res.send("Users Service is running 🚀");
 });
 
 // Login endpoint
@@ -56,7 +53,6 @@ app.post("/login", async (req, res) => {
 
     const authUser = authData.user;
 
-    // Fetch user record
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("id, full_name, role_id, active")
@@ -66,7 +62,6 @@ app.post("/login", async (req, res) => {
     if (userError) return res.status(400).json({ error: "User record not found" });
     if (!userData.active) return res.status(403).json({ error: "Account is inactive" });
 
-    // Fetch role
     const { data: roleData, error: roleError } = await supabase
       .from("roles")
       .select("name")
