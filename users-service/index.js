@@ -9,7 +9,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Debug env variables
+console.log("DEBUG ENV", {
+  SUPABASE_URL: process.env.SUPABASE_URL,
+  HAS_SERVICE_ROLE: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  HAS_ANON_KEY: !!process.env.SUPABASE_ANON_KEY,
+  PORT: process.env.PORT,
+});
+
 // Supabase client (backend)
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("❌ Missing Supabase environment variables!");
+  process.exit(1);
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -29,10 +42,7 @@ app.post("/login", async (req, res) => {
   try {
     // 1. Authenticate with Supabase Auth
     const { data: authData, error: authError } =
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      await supabase.auth.signInWithPassword({ email, password });
 
     if (authError) {
       return res.status(400).json({ error: authError.message });
@@ -87,10 +97,7 @@ app.post("/signup", async (req, res) => {
   try {
     // 1. Create user in Supabase Auth
     const { data: authData, error: authError } =
-      await supabase.auth.signUp({
-        email,
-        password,
-      });
+      await supabase.auth.signUp({ email, password });
 
     if (authError) {
       return res.status(400).json({ error: authError.message });
@@ -119,6 +126,7 @@ app.post("/signup", async (req, res) => {
 });
 
 // --------- START SERVER ---------
-app.listen(process.env.PORT, () => {
-  console.log(`Users service running on port ${process.env.PORT}`);
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`✅ Users service running on port ${PORT}`);
 });
