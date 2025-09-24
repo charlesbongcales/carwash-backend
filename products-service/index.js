@@ -28,7 +28,10 @@ app.get("/", (req, res) => {
 
 // Get all categories
 app.get("/api/categories", async (req, res) => {
-  const { data, error } = await supabase.from("categories").select("*").order("created_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("categories")
+    .select("*")
+    .order("created_at", { ascending: false });
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
@@ -36,7 +39,11 @@ app.get("/api/categories", async (req, res) => {
 // Add new category
 app.post("/api/categories", async (req, res) => {
   const { name, description } = req.body;
-  const { data, error } = await supabase.from("categories").insert([{ name, description }]).select().single();
+  const { data, error } = await supabase
+    .from("categories")
+    .insert([{ name, description }])
+    .select()
+    .single();
   if (error) return res.status(400).json({ error: error.message });
   res.status(201).json(data);
 });
@@ -45,7 +52,12 @@ app.post("/api/categories", async (req, res) => {
 app.put("/api/categories/:id", async (req, res) => {
   const { id } = req.params;
   const { name, description } = req.body;
-  const { data, error } = await supabase.from("categories").update({ name, description }).eq("id", id).select().single();
+  const { data, error } = await supabase
+    .from("categories")
+    .update({ name, description })
+    .eq("id", id)
+    .select()
+    .single();
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
 });
@@ -86,14 +98,14 @@ app.post("/api/products", async (req, res) => {
 });
 
 // Update product
-app.put("/api/products/:id", async (req, res) => {
-  const { id } = req.params;
+app.put("/api/products/:product_id", async (req, res) => {
+  const { product_id } = req.params;
   const { sku, name, description, category_id, supplier_id, unit, cost, price, stock, reorder_level, image_path } = req.body;
 
   const { data, error } = await supabase
     .from("products")
     .update({ sku, name, description, category_id, supplier_id, unit, cost, price, stock, reorder_level, image_path, updated_at: new Date() })
-    .eq("id", id)
+    .eq("product_id", product_id)
     .select()
     .single();
 
@@ -102,9 +114,9 @@ app.put("/api/products/:id", async (req, res) => {
 });
 
 // Delete product
-app.delete("/api/products/:id", async (req, res) => {
-  const { id } = req.params;
-  const { error } = await supabase.from("products").delete().eq("id", id);
+app.delete("/api/products/:product_id", async (req, res) => {
+  const { product_id } = req.params;
+  const { error } = await supabase.from("products").delete().eq("product_id", product_id);
   if (error) return res.status(400).json({ error: error.message });
   res.json({ message: "Product deleted successfully" });
 });
