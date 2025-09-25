@@ -12,6 +12,84 @@ app.use(express.json());
 // Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+/* ================================
+   Appointment System Compatible
+   ================================ */
+
+// Get all service categories
+export const getAllServicesCategories = async (req, res) => {
+    try {
+        const { data, error } = await supabase.from("services_category").select("*");
+        if (error) throw error;
+        return res.status(200).json({ services: data });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: "Error fetching services" });
+    }
+};
+
+// Get active basic services by category
+export const getBasicServices = async (req, res) => {
+    try {
+        const { services_category_id } = req.body;
+        const { data, error } = await supabase
+            .from("services")
+            .select("*")
+            .eq("services_category_id", services_category_id)
+            .eq("active", true);
+
+        if (error) throw error;
+        return res.status(200).json({ services: data });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: "Error fetching services" });
+    }
+};
+
+// Get premium wax + carwash services by category
+export const getPremiumWaxWithCarwashServices = async (req, res) => {
+    try {
+        const { services_category_id } = req.body;
+        const { data, error } = await supabase
+            .from("services")
+            .select("*")
+            .eq("services_category_id", services_category_id)
+            .eq("active", true);
+
+        if (error) throw error;
+        return res.status(200).json({ services: data });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: "Error fetching services" });
+    }
+};
+
+// Get price for a specific service
+export const getPrice = async (req, res) => {
+    try {
+        const { service_id } = req.body;
+        const { data, error } = await supabase
+            .from("services")
+            .select("small, medium, large, xlarge, xxlarge")
+            .eq("service_id", service_id)
+            .single();
+
+        if (error) throw error;
+        return res.status(200).json({ prices: data });
+    } catch (err) {
+        console.error(err.message);
+        return res.status(500).json({ message: "Error fetching prices" });
+    }
+};
+
+/* =========================
+   ROUTES for Appointment
+   ========================= */
+app.get("/getAllAvailableServices", getAllServicesCategories);
+app.post("/getBasicServices", getBasicServices);
+app.post("/getPremiumWaxWithCarwashServices", getPremiumWaxWithCarwashServices);
+app.post("/getPrice", getPrice);
+
 /* ======================
    SERVICE CATEGORIES CRUD
    ====================== */
@@ -57,9 +135,7 @@ app.delete("/api/service-categories/:id", async (req, res) => {
   res.json({ message: "Category deleted" });
 });
 
-/* ============
-   SERVICES CRUD
-   ============ */
+/* ============ SERVICES CRUD ============ */
 // Get all services
 app.get("/api/services", async (req, res) => {
   const { data, error } = await supabase
@@ -101,9 +177,7 @@ app.delete("/api/services/:id", async (req, res) => {
   res.json({ message: "Service deleted" });
 });
 
-/* ==========
-   VARIANTS
-   ========== */
+/* ========== VARIANTS ========== */
 // Get all variants
 app.get("/api/variants", async (req, res) => {
   const { data, error } = await supabase.from("variants").select("*");
@@ -119,9 +193,7 @@ app.post("/api/variants", async (req, res) => {
   res.json(data[0]);
 });
 
-/* ==================
-   SERVICE-PRODUCTS
-   ================== */
+/* ================== SERVICE-PRODUCTS ================== */
 // Assign a product to a service + variant
 app.post("/api/service-products/assign", async (req, res) => {
   const { service_id, product_id, variant_id, quantity } = req.body;
@@ -145,14 +217,11 @@ app.get("/api/service-products/:service_id/:variant_id", async (req, res) => {
   res.json(data);
 });
 
-/* ========================
-   APPLY SERVICE (Auto-deduct)
-   ======================== */
+/* ======================== APPLY SERVICE (Auto-deduct) ======================== */
 app.post("/api/service-products/apply", async (req, res) => {
   try {
     const { service_id, variant_id } = req.body;
 
-    // 1. Get products tied to this service + variant
     const { data: serviceProducts, error: spError } = await supabase
       .from("service_products")
       .select("product_id, quantity, products(stock)")
@@ -164,7 +233,6 @@ app.post("/api/service-products/apply", async (req, res) => {
       return res.status(400).json({ message: "No products linked for this service/variant." });
     }
 
-    // 2. Deduct stock
     for (const sp of serviceProducts) {
       const newStock = sp.products.stock - sp.quantity;
       if (newStock < 0) {
@@ -185,9 +253,7 @@ app.post("/api/service-products/apply", async (req, res) => {
   }
 });
 
-/* ==================
-   START SERVER
-   ================== */
+/* ================== START SERVER ================== */
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`✅ Services API running on port ${PORT}`);
