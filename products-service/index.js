@@ -238,29 +238,3 @@ app.get("/api/products/category/:category_id", async (req, res) => {
   res.json(data);
 });
 
-// Products summary (total + low stock)
-app.get("/api/products/summary", async (req, res) => {
-  try {
-    // Count total products
-    const { count: totalProducts, error: countError } = await supabase
-      .from("products")
-      .select("*", { count: "exact", head: true });
-
-    if (countError) throw countError;
-
-    // Find low-stock products
-    const { data: lowStockProducts, error: lowStockError } = await supabase
-      .from("products")
-      .select("product_id, name, stock, reorder_level")
-      .lt("stock", supabase.raw("reorder_level"));
-
-    if (lowStockError) throw lowStockError;
-
-    res.json({
-      totalProducts,
-      lowStockCount: lowStockProducts.length,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
