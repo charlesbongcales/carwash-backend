@@ -258,3 +258,17 @@ const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`✅ Services API running on port ${PORT}`);
 });
+
+// Services summary (total count)
+app.get("/api/services/summary", async (req, res) => {
+  try {
+    const { count, error } = await supabase
+      .from("services")
+      .select("*", { count: "exact", head: true });
+
+    if (error) throw error;
+    res.json({ totalServices: count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
