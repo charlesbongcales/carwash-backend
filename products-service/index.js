@@ -156,7 +156,6 @@ app.put("/api/suppliers/:id", async (req, res) => {
       email,
       address,
       notes,
-      updated_at: new Date(),
     })
     .eq("id", id)
     .select()
@@ -715,3 +714,30 @@ app.get("/api/purchases", verifyAdmin, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// GET /api/my-requisitions - Logged-in user views THEIR OWN requisitions
+app.get("/api/my-requisitions", verifyUser, async (req, res) => {
+  try {
+    const userId = req.user.user_id; // Extracted from the token by verifyUser middleware
+
+
+    const { data, error } = await supabase
+      .from("purchase_requisitions")
+      .select(`
+        *,
+        items:purchase_requisition_items(
+          quantity,
+          product:products(name, category_id, categories(name))
+        )
+      `)
+      .eq("requested_by", userId) // 🔒 Security: Only fetch records for this user
+      .order("created_at", { ascending: false });
+
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
