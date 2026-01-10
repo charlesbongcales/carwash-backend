@@ -12,6 +12,11 @@ app.use(express.json());
 // Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
+const posSupabase = createClient(
+  process.env.POS_SUPABASE_URL,
+  process.env.POS_SUPABASE_KEY
+);
+
 /* ================================
    Appointment System Compatible
    ================================ */
@@ -309,3 +314,52 @@ app.get("/api/services/summary", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get("/api/reports/top-services", async (req, res) => {
+  try {
+    const { data: orders, error } = await posSupabase
+      .from("orders")
+      .select("item_details");
+
+    if (error) throw error;
+
+    const counts = {};
+
+    orders.forEach(order => {
+      if (!order.item_details) return;
+
+      let items;
+      try {
+        items = Array.isArray(order.item_details)
+          ? order.item_details
+          : JSON.parse(order.item_details);
+      } catch (err) {
+        console.error("Failed to parse item_details:", err.message);
+        return;
+      }
+
+      items.forEach(item => {
+        if (item.type !== "service") return;
+
+        const name = item.name;
+        const qty = item.quantity || 1;
+        counts[name] = (counts[name] || 0) + qty;
+      });
+    });
+
+    const result = Object.entries(counts)
+      .map(([service_name, total_orders]) => ({ service_name, total_orders }))
+      .sort((a, b) => b.total_orders - a.total_orders);
+
+    res.json({
+      source: "POS",
+      report: "Top Selling Services",
+      data: result
+    });
+
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: "Failed to fetch top services", details: err.message });
+  }
+});
+
