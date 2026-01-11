@@ -40,7 +40,7 @@ export const getAllServicesCategories = async (req, res) => {
 
 
 /* -------------------------------------------------------
-   ✅ THE 4 UPDATED FUNCTIONS (Show "(Unavailable)" instead of hiding)
+   ✅ THE 4 UPDATED FUNCTIONS (Clean - No Renaming)
    ------------------------------------------------------- */
 
 
@@ -49,7 +49,6 @@ export const getBasicServices = async (req, res) => {
   try {
     const { services_category_id } = req.body;
    
-    // Fetch all services + inventory info
     const { data: services, error } = await supabase
       .from("services")
       .select(`*, service_products ( quantity, products ( stock ) )`)
@@ -59,38 +58,29 @@ export const getBasicServices = async (req, res) => {
     if (error) throw error;
 
 
-    // MAP: Don't remove items. Instead, update their name if stock is low.
     const processedServices = services.map((service) => {
-      // 1. Check if we have enough stock
+      // 1. Check Stock
       let hasStock = true;
-      if (service.service_products && service.service_products.length > 0) {
+      if (service.service_products?.length > 0) {
         hasStock = service.service_products.every(sp =>
           sp.products && sp.products.stock >= sp.quantity
         );
       }
 
 
-      // 2. If NO STOCK, modify the service object
+      // 2. If NO STOCK, just set active to false
       if (!hasStock) {
         return {
           ...service,
-          // Append (Unavailable) to the name so it shows in the dropdown
-          service_name: `${service.service_name} (Unavailable)`,
-          // Set active to false to try and disable it in the UI
+          // We REMOVED the renaming line here to prevent double labels
           active: false
         };
       }
-
-
-      // 3. If stock is good, return original service
       return service;
     });
 
 
-    // Clean: Remove inventory data
     const cleanedData = processedServices.map(({ service_products, ...rest }) => rest);
-
-
     return res.status(200).json({ services: cleanedData });
   } catch (err) {
     console.error(err.message);
@@ -125,7 +115,6 @@ export const getPremiumWaxWithCarwashServices = async (req, res) => {
       if (!hasStock) {
         return {
           ...service,
-          service_name: `${service.service_name} (Unavailable)`,
           active: false
         };
       }
@@ -168,7 +157,6 @@ export const getMajorServices = async (req, res) => {
       if (!hasStock) {
         return {
           ...service,
-          service_name: `${service.service_name} (Unavailable)`,
           active: false
         };
       }
@@ -211,7 +199,6 @@ export const getCeramicCoatingServices = async (req, res) => {
       if (!hasStock) {
         return {
           ...service,
-          service_name: `${service.service_name} (Unavailable)`,
           active: false
         };
       }
@@ -226,6 +213,10 @@ export const getCeramicCoatingServices = async (req, res) => {
     return res.status(500).json({ message: "Error fetching services" });
   }
 };
+
+
+
+
 /* -------------------------------------------------------
    ✅ END OF UPDATED FUNCTIONS
    ------------------------------------------------------- */
@@ -621,4 +612,6 @@ app.delete("/api/service-products/:id", async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json({ message: "Item removed" });
 });
+
+
 
