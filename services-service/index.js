@@ -40,36 +40,55 @@ export const getAllServicesCategories = async (req, res) => {
 
 
 /* -------------------------------------------------------
-   ✅ THE 4 UPDATED FUNCTIONS (With Stock Checking Logic)
+   ✅ THE 4 UPDATED FUNCTIONS (Show "(Unavailable)" instead of hiding)
    ------------------------------------------------------- */
 
 
-// 1. Get Active Basic Services (UPDATED)
+// 1. Get Basic Services
 export const getBasicServices = async (req, res) => {
   try {
     const { services_category_id } = req.body;
    
-    // Fetch service + inventory info
+    // Fetch all services + inventory info
     const { data: services, error } = await supabase
       .from("services")
       .select(`*, service_products ( quantity, products ( stock ) )`)
-      .eq("services_category_id", services_category_id)
+      .eq("services_category_id", services_category_id);
 
 
     if (error) throw error;
 
 
-    // Filter: Remove if stock < quantity needed
-    const validServices = services.filter((service) => {
-      if (!service.service_products?.length) return true; // No products needed = Available
-      return service.service_products.every(sp =>
-        sp.products && sp.products.stock >= sp.quantity
-      );
+    // MAP: Don't remove items. Instead, update their name if stock is low.
+    const processedServices = services.map((service) => {
+      // 1. Check if we have enough stock
+      let hasStock = true;
+      if (service.service_products && service.service_products.length > 0) {
+        hasStock = service.service_products.every(sp =>
+          sp.products && sp.products.stock >= sp.quantity
+        );
+      }
+
+
+      // 2. If NO STOCK, modify the service object
+      if (!hasStock) {
+        return {
+          ...service,
+          // Append (Unavailable) to the name so it shows in the dropdown
+          service_name: `${service.service_name} (Unavailable)`,
+          // Set active to false to try and disable it in the UI
+          active: false
+        };
+      }
+
+
+      // 3. If stock is good, return original service
+      return service;
     });
 
 
-    // Clean: Remove inventory data so Appointment System doesn't see it
-    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+    // Clean: Remove inventory data
+    const cleanedData = processedServices.map(({ service_products, ...rest }) => rest);
 
 
     return res.status(200).json({ services: cleanedData });
@@ -80,7 +99,7 @@ export const getBasicServices = async (req, res) => {
 };
 
 
-// 2. Get Premium Wax + Carwash Services (UPDATED)
+// 2. Get Premium Wax + Carwash Services
 export const getPremiumWaxWithCarwashServices = async (req, res) => {
   try {
     const { services_category_id } = req.body;
@@ -88,21 +107,33 @@ export const getPremiumWaxWithCarwashServices = async (req, res) => {
     const { data: services, error } = await supabase
       .from("services")
       .select(`*, service_products ( quantity, products ( stock ) )`)
-      .eq("services_category_id", services_category_id)
+      .eq("services_category_id", services_category_id);
 
 
     if (error) throw error;
 
 
-    const validServices = services.filter((service) => {
-      if (!service.service_products?.length) return true;
-      return service.service_products.every(sp =>
-        sp.products && sp.products.stock >= sp.quantity
-      );
+    const processedServices = services.map((service) => {
+      let hasStock = true;
+      if (service.service_products?.length > 0) {
+        hasStock = service.service_products.every(sp =>
+          sp.products && sp.products.stock >= sp.quantity
+        );
+      }
+
+
+      if (!hasStock) {
+        return {
+          ...service,
+          service_name: `${service.service_name} (Unavailable)`,
+          active: false
+        };
+      }
+      return service;
     });
 
 
-    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+    const cleanedData = processedServices.map(({ service_products, ...rest }) => rest);
     return res.status(200).json({ services: cleanedData });
   } catch (err) {
     console.error(err.message);
@@ -111,7 +142,7 @@ export const getPremiumWaxWithCarwashServices = async (req, res) => {
 };
 
 
-// 3. Get Major Services (UPDATED)
+// 3. Get Major Services
 export const getMajorServices = async (req, res) => {
   try {
     const { services_category_id } = req.body;
@@ -119,21 +150,33 @@ export const getMajorServices = async (req, res) => {
     const { data: services, error } = await supabase
       .from("services")
       .select(`*, service_products ( quantity, products ( stock ) )`)
-      .eq("services_category_id", services_category_id)
+      .eq("services_category_id", services_category_id);
 
 
     if (error) throw error;
 
 
-    const validServices = services.filter((service) => {
-      if (!service.service_products?.length) return true;
-      return service.service_products.every(sp =>
-        sp.products && sp.products.stock >= sp.quantity
-      );
+    const processedServices = services.map((service) => {
+      let hasStock = true;
+      if (service.service_products?.length > 0) {
+        hasStock = service.service_products.every(sp =>
+          sp.products && sp.products.stock >= sp.quantity
+        );
+      }
+
+
+      if (!hasStock) {
+        return {
+          ...service,
+          service_name: `${service.service_name} (Unavailable)`,
+          active: false
+        };
+      }
+      return service;
     });
 
 
-    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+    const cleanedData = processedServices.map(({ service_products, ...rest }) => rest);
     return res.status(200).json({ services: cleanedData });
   } catch (error) {
     console.error(error.message);
@@ -142,7 +185,7 @@ export const getMajorServices = async (req, res) => {
 };
 
 
-// 4. Get Ceramic Coating Services (UPDATED)
+// 4. Get Ceramic Coating Services
 export const getCeramicCoatingServices = async (req, res) => {
   try {
     const { services_category_id } = req.body;
@@ -150,29 +193,39 @@ export const getCeramicCoatingServices = async (req, res) => {
     const { data: services, error } = await supabase
       .from("services")
       .select(`*, service_products ( quantity, products ( stock ) )`)
-      .eq("services_category_id", services_category_id)
+      .eq("services_category_id", services_category_id);
 
 
     if (error) throw error;
 
 
-    const validServices = services.filter((service) => {
-      if (!service.service_products?.length) return true;
-      return service.service_products.every(sp =>
-        sp.products && sp.products.stock >= sp.quantity
-      );
+    const processedServices = services.map((service) => {
+      let hasStock = true;
+      if (service.service_products?.length > 0) {
+        hasStock = service.service_products.every(sp =>
+          sp.products && sp.products.stock >= sp.quantity
+        );
+      }
+
+
+      if (!hasStock) {
+        return {
+          ...service,
+          service_name: `${service.service_name} (Unavailable)`,
+          active: false
+        };
+      }
+      return service;
     });
 
 
-    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+    const cleanedData = processedServices.map(({ service_products, ...rest }) => rest);
     return res.status(200).json({ services: cleanedData });
   } catch (error) {
     console.error(error.message);
     return res.status(500).json({ message: "Error fetching services" });
   }
 };
-
-
 /* -------------------------------------------------------
    ✅ END OF UPDATED FUNCTIONS
    ------------------------------------------------------- */
