@@ -411,36 +411,80 @@ app.post("/api/service-products/apply", async (req, res) => {
     const { service_id, variant_id } = req.body;
 
 
+    console.log(`🚀 Applying Service ID: ${service_id}, Variant ID: ${variant_id}`);
+
+
+    // 1. Get the list of products assigned to this service/variant
+    // We only select product_id and quantity here. We fetch current stock inside the loop.
     const { data: serviceProducts, error: spError } = await supabase
       .from("service_products")
-      .select("product_id, quantity, products(stock)")
+      .select("product_id, quantity")
       .eq("service_id", service_id)
       .eq("variant_id", variant_id);
 
 
     if (spError) throw spError;
+   
+    // Log what we found to debug
+    console.log(`📦 Found ${serviceProducts?.length || 0} items to deduct.`);
+
+
     if (!serviceProducts || serviceProducts.length === 0) {
-      return res.status(400).json({ message: "No products linked for this service/variant." });
+       return res.json({ message: "No inventory deduction needed." });
     }
 
 
+    // 2. Iterate and update ONE BY ONE
     for (const sp of serviceProducts) {
-      const newStock = sp.products.stock - sp.quantity;
-      if (newStock < 0) {
-        return res.status(400).json({ message: `Not enough stock for product ${sp.product_id}` });
+     
+      // A. Fetch the CURRENT stock from the DB right now (Fresh Data)
+      const { data: productData, error: productError } = await supabase
+        .from("products")
+        .select("product_id, stock, name, unit")
+        .eq("product_id", sp.product_id) // ✅ CORRECTED: using product_id
+        .single();
+
+
+      if (productError || !productData) {
+        console.error(`❌ Product lookup failed for ID: ${sp.product_id}`);
+        continue;
       }
 
 
-      const { error: updateError } = await supabase.from("products").update({ stock: newStock }).eq("id", sp.product_id);
+      console.log(`Processing ${productData.name}: Stock ${productData.stock} - ${sp.quantity}`);
+
+
+      // B. Calculate new stock
+      const currentStock = productData.stock;
+      const newStock = currentStock - sp.quantity;
+
+
+      if (newStock < 0) {
+        return res.status(400).json({
+          message: `Not enough stock for ${productData.name}. Current: ${currentStock}, Required: ${sp.quantity}`
+        });
+      }
+
+
+      // C. Update the product
+      const { error: updateError } = await supabase
+        .from("products")
+        .update({ stock: newStock })
+        .eq("product_id", sp.product_id); // ✅ THIS WAS THE BUG (was 'id')
+
+
       if (updateError) throw updateError;
     }
 
 
     res.json({ message: "✅ Service applied and stock deducted successfully" });
   } catch (err) {
+    console.error("Apply Service Error:", err);
     res.status(500).json({ message: "Error applying service", error: err.message });
   }
 });
+
+
 
 
 /* ================== START SERVER ================== */
