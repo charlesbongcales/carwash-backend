@@ -4,24 +4,29 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 
+
 dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
 
+
 // Supabase client
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
 
 const posSupabase = createClient(
   process.env.POS_SUPABASE_URL,
   process.env.POS_SUPABASE_KEY
 );
 
+
 /* ================================
-   Appointment System Compatible
+   Appointment System Compatible (UPDATED)
    ================================ */
 
-// Get all service categories
+
+// Get all service categories (NO CHANGE)
 export const getAllServicesCategories = async (req, res) => {
   try {
     const { data, error } = await supabase.from("services_category").select("*");
@@ -33,43 +38,147 @@ export const getAllServicesCategories = async (req, res) => {
   }
 };
 
-// Get active basic services by category
+
+/* -------------------------------------------------------
+   ✅ THE 4 UPDATED FUNCTIONS (With Stock Checking Logic)
+   ------------------------------------------------------- */
+
+
+// 1. Get Active Basic Services (UPDATED)
 export const getBasicServices = async (req, res) => {
   try {
     const { services_category_id } = req.body;
-    const { data, error } = await supabase
+   
+    // Fetch service + inventory info
+    const { data: services, error } = await supabase
       .from("services")
-      .select("*")
+      .select(`*, service_products ( quantity, products ( stock ) )`)
       .eq("services_category_id", services_category_id)
-      .eq("active", true);
+
 
     if (error) throw error;
-    return res.status(200).json({ services: data });
+
+
+    // Filter: Remove if stock < quantity needed
+    const validServices = services.filter((service) => {
+      if (!service.service_products?.length) return true; // No products needed = Available
+      return service.service_products.every(sp =>
+        sp.products && sp.products.stock >= sp.quantity
+      );
+    });
+
+
+    // Clean: Remove inventory data so Appointment System doesn't see it
+    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+
+
+    return res.status(200).json({ services: cleanedData });
   } catch (err) {
     console.error(err.message);
     return res.status(500).json({ message: "Error fetching services" });
   }
 };
 
-// Get premium wax + carwash services
+
+// 2. Get Premium Wax + Carwash Services (UPDATED)
 export const getPremiumWaxWithCarwashServices = async (req, res) => {
   try {
     const { services_category_id } = req.body;
-    const { data, error } = await supabase
+   
+    const { data: services, error } = await supabase
       .from("services")
-      .select("*")
+      .select(`*, service_products ( quantity, products ( stock ) )`)
       .eq("services_category_id", services_category_id)
-      .eq("active", true);
+
 
     if (error) throw error;
-    return res.status(200).json({ services: data });
+
+
+    const validServices = services.filter((service) => {
+      if (!service.service_products?.length) return true;
+      return service.service_products.every(sp =>
+        sp.products && sp.products.stock >= sp.quantity
+      );
+    });
+
+
+    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+    return res.status(200).json({ services: cleanedData });
   } catch (err) {
     console.error(err.message);
     return res.status(500).json({ message: "Error fetching services" });
   }
 };
 
-// Get price for a specific service
+
+// 3. Get Major Services (UPDATED)
+export const getMajorServices = async (req, res) => {
+  try {
+    const { services_category_id } = req.body;
+   
+    const { data: services, error } = await supabase
+      .from("services")
+      .select(`*, service_products ( quantity, products ( stock ) )`)
+      .eq("services_category_id", services_category_id)
+
+
+    if (error) throw error;
+
+
+    const validServices = services.filter((service) => {
+      if (!service.service_products?.length) return true;
+      return service.service_products.every(sp =>
+        sp.products && sp.products.stock >= sp.quantity
+      );
+    });
+
+
+    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+    return res.status(200).json({ services: cleanedData });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({ message: "Error fetching services" });
+  }
+};
+
+
+// 4. Get Ceramic Coating Services (UPDATED)
+export const getCeramicCoatingServices = async (req, res) => {
+  try {
+    const { services_category_id } = req.body;
+   
+    const { data: services, error } = await supabase
+      .from("services")
+      .select(`*, service_products ( quantity, products ( stock ) )`)
+      .eq("services_category_id", services_category_id)
+
+
+    if (error) throw error;
+
+
+    const validServices = services.filter((service) => {
+      if (!service.service_products?.length) return true;
+      return service.service_products.every(sp =>
+        sp.products && sp.products.stock >= sp.quantity
+      );
+    });
+
+
+    const cleanedData = validServices.map(({ service_products, ...rest }) => rest);
+    return res.status(200).json({ services: cleanedData });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(500).json({ message: "Error fetching services" });
+  }
+};
+
+
+/* -------------------------------------------------------
+   ✅ END OF UPDATED FUNCTIONS
+   ------------------------------------------------------- */
+
+
+// Get price for a specific service (NO CHANGE)
 export const getPrice = async (req, res) => {
   try {
     const { service_id } = req.body;
@@ -79,6 +188,7 @@ export const getPrice = async (req, res) => {
       .eq("service_id", service_id)
       .single();
 
+
     if (error) throw error;
     return res.status(200).json({ prices: data });
   } catch (err) {
@@ -87,45 +197,8 @@ export const getPrice = async (req, res) => {
   }
 };
 
-/* ========= NEW ROUTES YOU ASKED FOR ========= */
 
-// Get major services
-export const getMajorServices = async (req, res) => {
-  try {
-    const { services_category_id } = req.body;
-    const { data: services, error } = await supabase
-      .from("services")
-      .select("*")
-      .eq("services_category_id", services_category_id)
-      .eq("active", true);
-
-    if (error) throw error;
-    return res.status(200).json({ services });
-  } catch (error) {
-    console.error(error.message);
-    return res.status(500).json({ message: "Error fetching services" });
-  }
-};
-
-// Get ceramic coating services
-export const getCeramicCoatingServices = async (req, res) => {
-  try {
-    const { services_category_id } = req.body;
-    const { data: services, error } = await supabase
-      .from("services")
-      .select("*")
-      .eq("services_category_id", services_category_id)
-      .eq("active", true);
-
-    if (error) throw error;
-    return res.status(200).json({ services });
-  } catch (error) {
-    console.error(error.message);
-    return res.status(500).json({ message: "Error fetching services" });
-  }
-};
-
-// Fetch service details
+// Fetch service details (NO CHANGE)
 export const fetchServiceDetails = async (req, res) => {
   try {
     const { service_id } = req.query;
@@ -135,17 +208,16 @@ export const fetchServiceDetails = async (req, res) => {
       .eq("service_id", service_id)
       .single();
 
+
     if (error) {
       return res.status(404).json({ message: "Service fetch fail" });
     }
-
     return res.status(200).json({ message: "Service details fetched", service });
   } catch (error) {
     console.error(error.message);
     return res.status(500).json({ message: "Error fetching service" });
   }
 };
-
 /* =========================
    ROUTES for Appointment
    ========================= */
@@ -154,10 +226,12 @@ app.post("/getBasicServices", getBasicServices);
 app.post("/getPremiumWaxWithCarwashServices", getPremiumWaxWithCarwashServices);
 app.post("/getPrice", getPrice);
 
+
 // ✅ New endpoints added
 app.post("/getMajorServices", getMajorServices);
 app.post("/getCeramicCoatingServices", getCeramicCoatingServices);
 app.get("/fetchServiceDetails", fetchServiceDetails);
+
 
 /* ======================
    SERVICE CATEGORIES CRUD
@@ -168,6 +242,7 @@ app.get("/api/service-categories", async (req, res) => {
   res.json(data);
 });
 
+
 app.post("/api/service-categories", async (req, res) => {
   const { category_name } = req.body;
   const { data, error } = await supabase
@@ -177,6 +252,7 @@ app.post("/api/service-categories", async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data[0]);
 });
+
 
 app.put("/api/service-categories/:id", async (req, res) => {
   const { id } = req.params;
@@ -190,6 +266,7 @@ app.put("/api/service-categories/:id", async (req, res) => {
   res.json(data[0]);
 });
 
+
 app.delete("/api/service-categories/:id", async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from("services_category").delete().eq("services_category_id", id);
@@ -197,12 +274,14 @@ app.delete("/api/service-categories/:id", async (req, res) => {
   res.json({ message: "Category deleted" });
 });
 
+
 /* ============ SERVICES CRUD ============ */
 app.get("/api/services", async (req, res) => {
   const { data, error } = await supabase.from("services").select("*, services_category(category_name)");
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 });
+
 
 app.post("/api/services", async (req, res) => {
   const { service_name, services_category_id, small, medium, large, xlarge, xxlarge } = req.body;
@@ -213,6 +292,7 @@ app.post("/api/services", async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data[0]);
 });
+
 
 app.put("/api/services/:id", async (req, res) => {
   const { id } = req.params;
@@ -226,12 +306,14 @@ app.put("/api/services/:id", async (req, res) => {
   res.json(data[0]);
 });
 
+
 app.delete("/api/services/:id", async (req, res) => {
   const { id } = req.params;
   const { error } = await supabase.from("services").delete().eq("service_id", id);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ message: "Service deleted" });
 });
+
 
 /* ========== VARIANTS ========== */
 app.get("/api/variants", async (req, res) => {
@@ -240,12 +322,14 @@ app.get("/api/variants", async (req, res) => {
   res.json(data);
 });
 
+
 app.post("/api/variants", async (req, res) => {
   const { name } = req.body;
   const { data, error } = await supabase.from("variants").insert([{ name }]).select();
   if (error) return res.status(500).json({ error: error.message });
   res.json(data[0]);
 });
+
 
 /* ================== SERVICE-PRODUCTS ================== */
 app.post("/api/service-products/assign", async (req, res) => {
@@ -254,6 +338,7 @@ app.post("/api/service-products/assign", async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json({ message: "Product assigned successfully", data });
 });
+
 
 app.get("/api/service-products/:service_id/:variant_id", async (req, res) => {
   const { service_id, variant_id } = req.params;
@@ -266,10 +351,12 @@ app.get("/api/service-products/:service_id/:variant_id", async (req, res) => {
   res.json(data);
 });
 
+
 /* ======================== APPLY SERVICE (Auto-deduct) ======================== */
 app.post("/api/service-products/apply", async (req, res) => {
   try {
     const { service_id, variant_id } = req.body;
+
 
     const { data: serviceProducts, error: spError } = await supabase
       .from("service_products")
@@ -277,10 +364,12 @@ app.post("/api/service-products/apply", async (req, res) => {
       .eq("service_id", service_id)
       .eq("variant_id", variant_id);
 
+
     if (spError) throw spError;
     if (!serviceProducts || serviceProducts.length === 0) {
       return res.status(400).json({ message: "No products linked for this service/variant." });
     }
+
 
     for (const sp of serviceProducts) {
       const newStock = sp.products.stock - sp.quantity;
@@ -288,9 +377,11 @@ app.post("/api/service-products/apply", async (req, res) => {
         return res.status(400).json({ message: `Not enough stock for product ${sp.product_id}` });
       }
 
+
       const { error: updateError } = await supabase.from("products").update({ stock: newStock }).eq("id", sp.product_id);
       if (updateError) throw updateError;
     }
+
 
     res.json({ message: "✅ Service applied and stock deducted successfully" });
   } catch (err) {
@@ -298,11 +389,13 @@ app.post("/api/service-products/apply", async (req, res) => {
   }
 });
 
+
 /* ================== START SERVER ================== */
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`✅ Services API running on port ${PORT}`);
 });
+
 
 // Services summary (total count)
 app.get("/api/services/summary", async (req, res) => {
@@ -315,18 +408,23 @@ app.get("/api/services/summary", async (req, res) => {
   }
 });
 
+
 app.get("/api/reports/top-services", async (req, res) => {
   try {
     const { data: orders, error } = await posSupabase
       .from("orders")
       .select("item_details");
 
+
     if (error) throw error;
+
 
     const counts = {};
 
+
     orders.forEach(order => {
       if (!order.item_details) return;
+
 
       let items;
       try {
@@ -338,8 +436,10 @@ app.get("/api/reports/top-services", async (req, res) => {
         return;
       }
 
+
       items.forEach(item => {
         if (item.type !== "service") return;
+
 
         const name = item.name;
         const qty = item.quantity || 1;
@@ -347,9 +447,11 @@ app.get("/api/reports/top-services", async (req, res) => {
       });
     });
 
+
     const result = Object.entries(counts)
       .map(([service_name, total_orders]) => ({ service_name, total_orders }))
       .sort((a, b) => b.total_orders - a.total_orders);
+
 
     res.json({
       source: "POS",
@@ -357,9 +459,69 @@ app.get("/api/reports/top-services", async (req, res) => {
       data: result
     });
 
+
   } catch (err) {
     console.error(err.message);
     res.status(500).json({ error: "Failed to fetch top services", details: err.message });
   }
+});
+
+
+/* ================== SERVICE-PRODUCTS DETAILS ================== */
+
+
+// 1. UPDATE THIS EXISTING ROUTE: Add 'id' to the select query
+app.get("/api/service-inventory-details/:service_id", async (req, res) => {
+  const { service_id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from("service_products")
+      .select(`
+        id,  
+        quantity,
+        products (name, unit, stock),
+        variants (name)
+      `)
+      .eq("service_id", service_id)
+      .order('variant_id', { ascending: true });
+
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error("Error fetching attached products:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// 2. ADD THIS NEW ROUTE: Update Quantity
+app.put("/api/service-products/:id", async (req, res) => {
+  const { id } = req.params;
+  const { quantity } = req.body;
+ 
+  const { data, error } = await supabase
+    .from("service_products")
+    .update({ quantity })
+    .eq("id", id)
+    .select();
+
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+
+// 3. ADD THIS NEW ROUTE: Delete Mapping
+app.delete("/api/service-products/:id", async (req, res) => {
+  const { id } = req.params;
+  const { error } = await supabase
+    .from("service_products")
+    .delete()
+    .eq("id", id);
+
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ message: "Item removed" });
 });
 
